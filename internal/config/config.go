@@ -538,6 +538,9 @@ type OpenAICompatibility struct {
 	// APIKeyEntries defines API keys with optional per-key proxy configuration.
 	APIKeyEntries []OpenAICompatibilityAPIKey `yaml:"api-key-entries,omitempty" json:"api-key-entries,omitempty"`
 
+	// APIKeys is a shorthand for APIKeyEntries when no per-key proxy configuration is needed.
+	APIKeys []string `yaml:"api-keys,omitempty" json:"api-keys,omitempty"`
+
 	// Models defines the model configurations including aliases for routing.
 	Models []OpenAICompatibilityModel `yaml:"models" json:"models"`
 
@@ -868,6 +871,7 @@ func (cfg *Config) SanitizeOpenAICompatibility() {
 		e.Prefix = normalizeModelPrefix(e.Prefix)
 		e.BaseURL = strings.TrimSpace(e.BaseURL)
 		e.Headers = NormalizeHeaders(e.Headers)
+		e.APIKeys = normalizeOpenAICompatibilityAPIKeys(e.APIKeys)
 		if e.BaseURL == "" {
 			// Skip providers with no base-url; treated as removed
 			continue
@@ -875,6 +879,21 @@ func (cfg *Config) SanitizeOpenAICompatibility() {
 		out = append(out, e)
 	}
 	cfg.OpenAICompatibility = out
+}
+
+func normalizeOpenAICompatibilityAPIKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		out = append(out, key)
+	}
+	return out
 }
 
 // SanitizeCodexKeys removes Codex API key entries missing a BaseURL.
@@ -1076,7 +1095,6 @@ func SaveConfigPreserveComments(configFile string, cfg *Config) error {
 
 	// Remove deprecated sections before merging back the sanitized config.
 	removeLegacyAuthBlock(original.Content[0])
-	removeLegacyOpenAICompatAPIKeys(original.Content[0])
 	removeLegacyAmpKeys(original.Content[0])
 	removeLegacyGenerativeLanguageKeys(original.Content[0])
 

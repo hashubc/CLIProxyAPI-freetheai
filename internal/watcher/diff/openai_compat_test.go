@@ -43,6 +43,28 @@ func TestDiffOpenAICompatibility(t *testing.T) {
 	expectContains(t, changes, "provider updated: provider-a (api-keys 1 -> 2, models 1 -> 2, headers updated)")
 }
 
+func TestDiffOpenAICompatibilityCountsAPIKeysShortcut(t *testing.T) {
+	oldList := []config.OpenAICompatibility{
+		{
+			Name:    "freetheai",
+			APIKeys: []string{"fta-key-1"},
+		},
+	}
+	newList := []config.OpenAICompatibility{
+		{
+			Name: "freetheai",
+			APIKeys: []string{
+				"fta-key-1",
+				"  ",
+				"fta-key-2",
+			},
+		},
+	}
+
+	changes := DiffOpenAICompatibility(oldList, newList)
+	expectContains(t, changes, "provider updated: freetheai (api-keys 1 -> 2)")
+}
+
 func TestDiffOpenAICompatibility_RemovedAndUnchanged(t *testing.T) {
 	oldList := []config.OpenAICompatibility{
 		{

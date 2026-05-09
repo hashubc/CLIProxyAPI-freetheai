@@ -225,6 +225,103 @@ func TestConfigSynthesizer_ClaudeKeys_SkipsEmptyAndHeaders(t *testing.T) {
 	}
 }
 
+func TestConfigSynthesizer_OpenAICompatAPIKeysShortcut(t *testing.T) {
+	synth := NewConfigSynthesizer()
+	ctx := &SynthesisContext{
+		Config: &config.Config{
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{
+					Name:    "freetheai",
+					BaseURL: "https://api.freetheai.xyz/v1",
+					APIKeys: []string{
+						"  fta-key-1  ",
+						"",
+						"fta-key-2",
+					},
+					Models: []config.OpenAICompatibilityModel{
+						{Name: "glm/glm-5.1", Alias: "glm-5.1"},
+					},
+				},
+			},
+		},
+		Now:         time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC),
+		IDGenerator: NewStableIDGenerator(),
+	}
+
+	auths, err := synth.Synthesize(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(auths) != 2 {
+		t.Fatalf("expected 2 auths, got %d", len(auths))
+	}
+
+	for i, auth := range auths {
+		if auth.Provider != "freetheai" {
+			t.Fatalf("auth %d provider = %q, want freetheai", i, auth.Provider)
+		}
+		if auth.Label != "freetheai" {
+			t.Fatalf("auth %d label = %q, want freetheai", i, auth.Label)
+		}
+		if auth.Attributes["base_url"] != "https://api.freetheai.xyz/v1" {
+			t.Fatalf("auth %d base_url = %q", i, auth.Attributes["base_url"])
+		}
+		if auth.Attributes["compat_name"] != "freetheai" {
+			t.Fatalf("auth %d compat_name = %q", i, auth.Attributes["compat_name"])
+		}
+		if auth.Attributes["provider_key"] != "freetheai" {
+			t.Fatalf("auth %d provider_key = %q", i, auth.Attributes["provider_key"])
+		}
+		if _, ok := auth.Attributes["models_hash"]; !ok {
+			t.Fatalf("auth %d missing models_hash", i)
+		}
+	}
+	if auths[0].Attributes["api_key"] != "fta-key-1" {
+		t.Fatalf("first api_key = %q", auths[0].Attributes["api_key"])
+	}
+	if auths[1].Attributes["api_key"] != "fta-key-2" {
+		t.Fatalf("second api_key = %q", auths[1].Attributes["api_key"])
+	}
+}
+
+func TestConfigSynthesizer_OpenAICompatEmptyAPIKeysShortcut(t *testing.T) {
+	synth := NewConfigSynthesizer()
+	ctx := &SynthesisContext{
+		Config: &config.Config{
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{
+					Name:    "freetheai",
+					BaseURL: "https://api.freetheai.xyz/v1",
+					APIKeys: []string{
+						"",
+						"   ",
+					},
+					Models: []config.OpenAICompatibilityModel{
+						{Name: "glm/glm-5.1", Alias: "glm-5.1"},
+						{Name: "wsf/kimi-k2.6", Alias: "kimi-k2.6"},
+					},
+				},
+			},
+		},
+		Now:         time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC),
+		IDGenerator: NewStableIDGenerator(),
+	}
+
+	auths, err := synth.Synthesize(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(auths) != 1 {
+		t.Fatalf("expected fallback auth for empty api-keys shortcut, got %d", len(auths))
+	}
+	if auths[0].Provider != "freetheai" {
+		t.Fatalf("provider = %q, want freetheai", auths[0].Provider)
+	}
+	if _, ok := auths[0].Attributes["api_key"]; ok {
+		t.Fatalf("empty api-keys shortcut should not set api_key, got %q", auths[0].Attributes["api_key"])
+	}
+}
+
 func TestConfigSynthesizer_CodexKeys(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{

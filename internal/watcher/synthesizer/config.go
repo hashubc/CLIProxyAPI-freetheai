@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher/diff"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
@@ -204,10 +205,12 @@ func (s *ConfigSynthesizer) synthesizeOpenAICompat(ctx *SynthesisContext) []*cor
 		}
 		base := strings.TrimSpace(compat.BaseURL)
 
-		// Handle new APIKeyEntries format (preferred)
+		apiKeyEntries := openAICompatAPIKeyEntries(compat)
+
+		// Handle API key entries.
 		createdEntries := 0
-		for j := range compat.APIKeyEntries {
-			entry := &compat.APIKeyEntries[j]
+		for j := range apiKeyEntries {
+			entry := &apiKeyEntries[j]
 			key := strings.TrimSpace(entry.APIKey)
 			proxyURL := strings.TrimSpace(entry.ProxyURL)
 			idKind := fmt.Sprintf("openai-compatibility:%s", providerName)
@@ -273,6 +276,22 @@ func (s *ConfigSynthesizer) synthesizeOpenAICompat(ctx *SynthesisContext) []*cor
 		}
 	}
 	return out
+}
+
+func openAICompatAPIKeyEntries(compat *config.OpenAICompatibility) []config.OpenAICompatibilityAPIKey {
+	if compat == nil {
+		return nil
+	}
+	entries := make([]config.OpenAICompatibilityAPIKey, 0, len(compat.APIKeyEntries)+len(compat.APIKeys))
+	entries = append(entries, compat.APIKeyEntries...)
+	for _, key := range compat.APIKeys {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		entries = append(entries, config.OpenAICompatibilityAPIKey{APIKey: key})
+	}
+	return entries
 }
 
 // synthesizeVertexCompat creates Auth entries for Vertex-compatible providers.

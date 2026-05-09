@@ -82,6 +82,25 @@ CLIProxyAPI 用户手册： [https://help.router-for.me/](https://help.router-fo
 
 面向 CLIProxyAPI 的完整管理中心，提供请求级监控和费用预估。CPA-Manager 可按账号、模型、渠道、延迟、状态和 token 用量追踪采集到的请求；支持可编辑模型价格与一键同步 LiteLLM 价格来估算费用；用 SQLite 持久化事件；并提供面向 Codex 账号池的批量巡检、配额识别、异常账号定位、清理建议与一键执行能力，适合多账号池的日常运维管理。
 
+## FreeTheAi 配置示例
+
+`https://api.freetheai.xyz` 是 OpenAI 兼容上游，可通过 `openai-compatibility` 接入。FreeTheAi 每个 key 有 10 requests/minute 速率限制；多个 `api-keys` 会被展开为多个凭据，默认 `routing.strategy: "round-robin"` 会轮询使用这些 key。
+
+```yaml
+openai-compatibility:
+  - name: "freetheai"
+    base-url: "https://api.freetheai.xyz/v1"
+    api-keys:
+      - "fta-key-1"
+      - "fta-key-2"
+      - "fta-key-3"
+    models:
+      - name: "glm/glm-5.1"
+        alias: "glm-5.1"
+      - name: "wsf/kimi-k2.6"
+        alias: "kimi-k2.6"
+```
+
 ## Amp CLI 支持
 
 CLIProxyAPI 已内置对 [Amp CLI](https://ampcode.com) 和 Amp IDE 扩展的支持，可让你使用自己的 Google/ChatGPT/Claude OAuth 订阅来配合 Amp 编码工具：

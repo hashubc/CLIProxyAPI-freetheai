@@ -40,6 +40,7 @@ type openAICompatibilityWithAuthIndex struct {
 	Prefix        string                                   `json:"prefix,omitempty"`
 	BaseURL       string                                   `json:"base-url"`
 	APIKeyEntries []openAICompatibilityAPIKeyWithAuthIndex `json:"api-key-entries,omitempty"`
+	APIKeys       []string                                 `json:"api-keys,omitempty"`
 	Models        []config.OpenAICompatibilityModel        `json:"models,omitempty"`
 	Headers       map[string]string                        `json:"headers,omitempty"`
 	AuthIndex     string                                   `json:"auth-index,omitempty"`
@@ -219,14 +220,16 @@ func (h *Handler) openAICompatibilityWithAuthIndex() []openAICompatibilityWithAu
 			Disabled:  entry.Disabled,
 			Prefix:    entry.Prefix,
 			BaseURL:   entry.BaseURL,
+			APIKeys:   entry.APIKeys,
 			Models:    entry.Models,
 			Headers:   entry.Headers,
 			AuthIndex: "",
 		}
-		if len(entry.APIKeyEntries) == 0 {
+		if len(entry.APIKeyEntries) == 0 && len(entry.APIKeys) == 0 {
 			id, _ := idGen.Next(idKind, entry.BaseURL)
 			response.AuthIndex = liveIndexByID[id]
-		} else {
+		}
+		if len(entry.APIKeyEntries) > 0 {
 			response.APIKeyEntries = make([]openAICompatibilityAPIKeyWithAuthIndex, len(entry.APIKeyEntries))
 			for j := range entry.APIKeyEntries {
 				apiKeyEntry := entry.APIKeyEntries[j]

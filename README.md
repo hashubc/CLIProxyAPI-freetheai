@@ -82,6 +82,25 @@ Local-first usage and quota dashboard for CLIProxyAPI. It collects per-request t
 
 Full CLIProxyAPI management center with request-level monitoring and cost estimates. CPA-Manager tracks collected requests by account, model, channel, latency, status, and token usage; estimates cost with editable model prices and one-click LiteLLM price sync; persists events in SQLite; and provides Codex account-pool operations with batch inspection, quota detection, unhealthy account discovery, cleanup suggestions, and one-click execution for day-to-day multi-account maintenance.
 
+## FreeTheAi Config Example
+
+`https://api.freetheai.xyz` is an OpenAI-compatible upstream and can be added through `openai-compatibility`. FreeTheAi limits each key to 10 requests/minute; multiple `api-keys` are expanded into separate credentials, and the default `routing.strategy: "round-robin"` rotates requests across them.
+
+```yaml
+openai-compatibility:
+  - name: "freetheai"
+    base-url: "https://api.freetheai.xyz/v1"
+    api-keys:
+      - "fta-key-1"
+      - "fta-key-2"
+      - "fta-key-3"
+    models:
+      - name: "glm/glm-5.1"
+        alias: "glm-5.1"
+      - name: "wsf/kimi-k2.6"
+        alias: "kimi-k2.6"
+```
+
 ## Amp CLI Support
 
 CLIProxyAPI includes integrated support for [Amp CLI](https://ampcode.com) and Amp IDE extensions, enabling you to use your Google/ChatGPT/Claude OAuth subscriptions with Amp's coding tools:

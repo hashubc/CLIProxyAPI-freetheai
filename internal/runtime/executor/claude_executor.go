@@ -663,6 +663,14 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 		if errClose := errBody.Close(); errClose != nil {
 			log.Errorf("response body close error: %v", errClose)
 		}
+		if shouldFallbackClaudeCountTokens(resp.StatusCode) {
+			fallbackResp, fallbackErr := fallbackClaudeCountTokens(ctx, to, from, baseModel, body, resp.Header)
+			if fallbackErr == nil {
+				helps.LogWithRequestID(ctx).Debugf("claude count_tokens unsupported by upstream, using local estimate")
+				return fallbackResp, nil
+			}
+			helps.LogWithRequestID(ctx).Warnf("claude count_tokens fallback failed: %v", fallbackErr)
+		}
 		return cliproxyexecutor.Response{}, statusErr{code: resp.StatusCode, msg: string(b)}
 	}
 	decodedBody, err := decodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
@@ -687,6 +695,110 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 	count := gjson.GetBytes(data, "input_tokens").Int()
 	out := sdktranslator.TranslateTokenCount(ctx, to, from, count, data)
 	return cliproxyexecutor.Response{Payload: out, Headers: resp.Header.Clone()}, nil
+}
+
+func shouldFallbackClaudeCountTokens(status int) bool {
+	return status == http.StatusNotFound || status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented
+}
+
+func fallbackClaudeCountTokens(ctx context.Context, to, from sdktranslator.Format, model string, body []byte, headers http.Header) (cliproxyexecutor.Response, error) {
+	enc, err := helps.TokenizerForModel(model)
+	if err != nil {
+		return cliproxyexecutor.Response{}, err
+	}
+	count, err := countClaudeInputTokens(enc, body)
+	if err != nil {
+		return cliproxyexecutor.Response{}, err
+	}
+	raw := []byte(fmt.Sprintf(`{"input_tokens":%d}`, count))
+	out := sdktranslator.TranslateTokenCount(ctx, to, from, count, raw)
+	return cliproxyexecutor.Response{Payload: out, Headers: headers.Clone()}, nil
+}
+
+func countClaudeInputTokens(enc interface {
+	Count(text string) (int, error)
+}, payload []byte) (int64, error) {
+	if enc == nil || len(payload) == 0 {
+		return 0, nil
+	}
+	root := gjson.ParseBytes(payload)
+	segments := make([]string, 0, 32)
+	collectClaudeText(root.Get("system"), &segments)
+	collectClaudeMessages(root.Get("messages"), &segments)
+	collectClaudeTools(root.Get("tools"), &segments)
+	joined := strings.TrimSpace(strings.Join(segments, "\n"))
+	if joined == "" {
+		return 0, nil
+	}
+	count, err := enc.Count(joined)
+	if err != nil {
+		return 0, err
+	}
+	return int64(count), nil
+}
+
+func collectClaudeMessages(messages gjson.Result, segments *[]string) {
+	if !messages.IsArray() {
+		return
+	}
+	messages.ForEach(func(_, message gjson.Result) bool {
+		addClaudeSegment(segments, message.Get("role").String())
+		collectClaudeText(message.Get("content"), segments)
+		return true
+	})
+}
+
+func collectClaudeTools(tools gjson.Result, segments *[]string) {
+	if !tools.IsArray() {
+		return
+	}
+	tools.ForEach(func(_, tool gjson.Result) bool {
+		addClaudeSegment(segments, tool.Get("name").String())
+		addClaudeSegment(segments, tool.Get("description").String())
+		if schema := tool.Get("input_schema"); schema.Exists() {
+			addClaudeSegment(segments, schema.Raw)
+		}
+		return true
+	})
+}
+
+func collectClaudeText(value gjson.Result, segments *[]string) {
+	if !value.Exists() {
+		return
+	}
+	if value.Type == gjson.String {
+		addClaudeSegment(segments, value.String())
+		return
+	}
+	if value.IsArray() {
+		value.ForEach(func(_, item gjson.Result) bool {
+			collectClaudeText(item, segments)
+			return true
+		})
+		return
+	}
+	if value.Type != gjson.JSON {
+		return
+	}
+	if text := value.Get("text"); text.Exists() {
+		addClaudeSegment(segments, text.String())
+	}
+	if content := value.Get("content"); content.Exists() {
+		collectClaudeText(content, segments)
+	}
+	if input := value.Get("input"); input.Exists() {
+		addClaudeSegment(segments, input.Raw)
+	}
+	if name := value.Get("name"); name.Exists() {
+		addClaudeSegment(segments, name.String())
+	}
+}
+
+func addClaudeSegment(segments *[]string, value string) {
+	value = strings.TrimSpace(value)
+	if value != "" {
+		*segments = append(*segments, value)
+	}
 }
 
 func (e *ClaudeExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {

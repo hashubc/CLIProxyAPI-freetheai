@@ -238,12 +238,33 @@ nonstream-keepalive-interval: 0
 
 # OpenAI compatibility providers
 # openai-compatibility:
+#   - name: "freetheai"
+#     base-url: "https://api.freetheai.xyz/v1"
+#     # FreeTheAi keys are rate-limited to 10 requests/minute per key. Configure multiple keys here;
+#     # the default routing.strategy: round-robin will rotate requests across them.
+#     api-keys:
+#       - "fta-key-1"
+#       - "fta-key-2"
+#       - "fta-key-3"
+#     models:
+#       - name: "glm/glm-5.1"
+#         alias: "glm-5.1"
+#       - name: "wsf/kimi-k2.6"
+#         alias: "kimi-k2.6"
+#       - name: "xai/grok-imagine-image"
+#         alias: "grok-imagine-image"
+#       - name: "xai/grok-imagine-video"
+#         alias: "grok-imagine-video"
+#       - name: "xai/grok-tts"
+#         alias: "grok-tts"
 #   - name: "openrouter" # The name of the provider; it will be used in the user agent and other places.
 #     disabled: false # optional: set to true to disable this provider without removing it
 #     prefix: "test" # optional: require calls like "test/kimi-k2" to target this provider's credentials
 #     base-url: "https://openrouter.ai/api/v1" # The base URL of the provider.
 #     headers:
 #       X-Custom-Header: "custom-value"
+#     # Use api-keys when all keys share the same settings, or api-key-entries
+#     # when a key needs its own proxy-url.
 #     api-key-entries:
 #       - api-key: "sk-or-v1-...b780"
 #         proxy-url: "socks5://proxy.example.com:1080" # optional: per-key proxy override

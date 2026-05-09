@@ -1251,6 +1251,37 @@ func TestClaudeExecutor_CountTokens_AppliesCacheControlGuards(t *testing.T) {
 	}
 }
 
+func TestClaudeExecutor_CountTokens_FallsBackWhenEndpointUnsupported(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/messages/count_tokens" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":{"message":"not found"}}`))
+	}))
+	defer server.Close()
+
+	executor := NewClaudeExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{
+		ID: "count-fallback-auth",
+		Attributes: map[string]string{
+			"api_key":  "sk-test",
+			"base_url": server.URL,
+		},
+	}
+
+	resp, err := executor.CountTokens(context.Background(), auth, cliproxyexecutor.Request{
+		Model:   "rev/claude-sonnet-4.5",
+		Payload: []byte(`{"model":"claude-sonnet-4.5","messages":[{"role":"user","content":"hello world"}]}`),
+	}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FromString("claude")})
+	if err != nil {
+		t.Fatalf("CountTokens error = %v", err)
+	}
+	if got := gjson.GetBytes(resp.Payload, "input_tokens").Int(); got <= 0 {
+		t.Fatalf("input_tokens = %d, want positive; payload=%s", got, string(resp.Payload))
+	}
+}
+
 func hasTTLOrderingViolation(payload []byte) bool {
 	seen5m := false
 	violates := false

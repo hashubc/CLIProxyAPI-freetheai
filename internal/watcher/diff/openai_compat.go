@@ -91,6 +91,11 @@ func countAPIKeys(entry config.OpenAICompatibility) int {
 			count++
 		}
 	}
+	for _, key := range entry.APIKeys {
+		if strings.TrimSpace(key) != "" {
+			count++
+		}
+	}
 	return count
 }
 

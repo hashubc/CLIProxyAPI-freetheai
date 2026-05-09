@@ -467,6 +467,7 @@ func (h *Handler) PatchOpenAICompat(c *gin.Context) {
 		Disabled      *bool                               `json:"disabled"`
 		BaseURL       *string                             `json:"base-url"`
 		APIKeyEntries *[]config.OpenAICompatibilityAPIKey `json:"api-key-entries"`
+		APIKeys       *[]string                           `json:"api-keys"`
 		Models        *[]config.OpenAICompatibilityModel  `json:"models"`
 		Headers       *map[string]string                  `json:"headers"`
 	}
@@ -522,6 +523,9 @@ func (h *Handler) PatchOpenAICompat(c *gin.Context) {
 	}
 	if body.Value.APIKeyEntries != nil {
 		entry.APIKeyEntries = append([]config.OpenAICompatibilityAPIKey(nil), (*body.Value.APIKeyEntries)...)
+	}
+	if body.Value.APIKeys != nil {
+		entry.APIKeys = append([]string(nil), (*body.Value.APIKeys)...)
 	}
 	if body.Value.Models != nil {
 		entry.Models = append([]config.OpenAICompatibilityModel(nil), (*body.Value.Models)...)
@@ -1096,6 +1100,17 @@ func normalizeOpenAICompatibilityEntry(entry *config.OpenAICompatibility) {
 			existing[trimmed] = struct{}{}
 		}
 	}
+	if len(entry.APIKeys) > 0 {
+		out := make([]string, 0, len(entry.APIKeys))
+		for _, key := range entry.APIKeys {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			out = append(out, key)
+		}
+		entry.APIKeys = out
+	}
 }
 
 func normalizedOpenAICompatibilityEntries(entries []config.OpenAICompatibility) []config.OpenAICompatibility {
@@ -1107,6 +1122,9 @@ func normalizedOpenAICompatibilityEntries(entries []config.OpenAICompatibility) 
 		copyEntry := entries[i]
 		if len(copyEntry.APIKeyEntries) > 0 {
 			copyEntry.APIKeyEntries = append([]config.OpenAICompatibilityAPIKey(nil), copyEntry.APIKeyEntries...)
+		}
+		if len(copyEntry.APIKeys) > 0 {
+			copyEntry.APIKeys = append([]string(nil), copyEntry.APIKeys...)
 		}
 		normalizeOpenAICompatibilityEntry(&copyEntry)
 		out[i] = copyEntry
